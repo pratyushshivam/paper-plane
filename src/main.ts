@@ -86,6 +86,7 @@ let ghost: { distance: number; path: Float32Array; line: string } | null = null;
 let flight: Flight | null = null;
 let hold = false;
 let heldFor = 0;
+let outsideFor = 0;
 let acc = 0;
 let clock = 0;
 let stateTime = 0;
@@ -99,6 +100,9 @@ let launchOffset = { x: 0, y: 0, t: 0 };
 let landing: { result: FlightResult; dur: number; x: number; y: number; th: number; dir: number; fall: number } | null = null;
 let review: { result: FlightResult; ghost: Float32Array | null; shown: number; lastTick: number; flagged: boolean; isBest: string } | null = null;
 let slideDust = 0;
+/** Development only: run time faster to reach far places quickly. */
+let warp = 1;
+let pinned = false;
 
 const cam = { x: 0, y: ROOM.startY, ppm: 60 };
 const pose: PlanePose = { x: ROOM.startX, y: ROOM.startY, th: 0.05, bank: 0, up: 1, squash: 1, visible: true };
@@ -214,6 +218,7 @@ function launch(): void {
   drag = null;
   hold = false;
   heldFor = 0;
+  outsideFor = 0;
   acc = 0;
   trail = [];
   intro = false;
@@ -317,6 +322,11 @@ function nextThrow(): void {
   }, 230);
 }
 
+/** Seconds the review takes to travel along a flight too long to fit the screen. */
+function reviewPan(distance: number): number {
+  return Math.max(2.2, Math.min(5, distance / 80));
+}
+
 /** The camera target for the current state. */
 function camTarget(): { x: number; y: number; ppm: number; rate: number; zoomRate: number } {
   const w = renderer.w;
@@ -362,11 +372,20 @@ function camTarget(): { x: number; y: number; ppm: number; rate: number; zoomRat
     const topPad = 84;
     const groundY = h - cardH - 62;
     const availH = Math.max(100, groundY - topPad);
-    const ppm = Math.min(base * 1.6, (w * 0.9) / (x1 - x0), availH / (hi - lo));
-    // A long, low flight leaves spare height: lift the picture towards the middle of it.
+    const fit = Math.min(base * 1.6, (w * 0.9) / (x1 - x0), availH / (hi - lo));
+    // On a narrow screen a long flight would shrink to a thread: keep it
+    // readable and travel along it instead, from the window to the landing.
+    const ppm = Math.max(fit, Math.min(2.6, availH / (hi - lo)));
     const spare = Math.max(0, availH - (hi - lo) * ppm);
     const gy = groundY - spare * 0.38;
-    return { x: (x0 + x1) / 2, y: lo + (gy - h / 2) / ppm, ppm, rate: 2.6, zoomRate: 2.6 };
+    const y = lo + (gy - h / 2) / ppm;
+    const half = (w * 0.9) / ppm / 2;
+    if (x1 - x0 <= half * 2 + 0.01) return { x: (x0 + x1) / 2, y, ppm, rate: 2.6, zoomRate: 2.6 };
+    const k = Math.min(1, Math.max(0, (stateTime - 0.7) / reviewPan(r.restX)));
+    const e = k * k * (3 - 2 * k);
+    // End on this flight's landing, wherever an earlier, longer one stopped.
+    const stop = Math.max(x0 + half, Math.min(x1 - half, r.restX - half * 0.55));
+    return { x: x0 + half + (stop - (x0 + half)) * e, y, ppm, rate: 4, zoomRate: 3 };
   }
   return { ...readyCam(), rate: 6, zoomRate: 6 };
 }
@@ -438,7 +457,7 @@ function update(dt: number): void {
       acc -= DT;
       if (f.phase === "slide") {
         slideDust += DT;
-        if (slideDust > 0.09) {
+        if (slideDust > 0.17) {
           slideDust = 0;
           bursts.push({ kind: "dust", x: f.x, y: f.y, age: 0, dir: f.vx >= 0 ? 1 : -1 });
         }
@@ -463,9 +482,11 @@ function update(dt: number): void {
 
     // Teach the one control once, outside, with time to try it.
     if (f.x > ROOM.out + 4 && f.phase === "air") {
+      outsideFor += dt;
       if (hold) heldFor += dt;
       if (!saved.held) {
-        ui.hint.hidden = false;
+        // Shown for the first seconds of each flight until it has been tried.
+        ui.hint.hidden = outsideFor > 10;
         if (heldFor > 0.5) {
           saved.held = true;
           save(saved);
@@ -520,7 +541,9 @@ function update(dt: number): void {
       pose.th = 0.1 + Math.sin(t * 2.2) * 0.05;
     } else {
       // A skid has already slid to rest; it just settles.
-      pose.th = l.th * Math.exp(-t * 8);
+      const lean = Math.atan2(surfaceAt(world, l.x + 0.5) - surfaceAt(world, l.x - 0.5), 1);
+      const rest = Math.abs(lean) < 0.6 ? lean : 0;
+      pose.th = rest + (l.th - rest) * Math.exp(-t * 8);
     }
     if (t >= l.dur) enterReview(l.result);
   } else if (state === "review" && review) {
@@ -785,8 +808,8 @@ function frame(now: number): void {
   const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
   last = now;
   // A new day while the page was open: move to its sky between rounds.
-  if (mode === "daily" && state === "ready" && thrownThisRound === 0 && dateKey() !== skyKey) newSky("daily");
-  update(dt);
+  if (!pinned && mode === "daily" && state === "ready" && thrownThisRound === 0 && dateKey() !== skyKey) newSky("daily");
+  for (let i = 0; i < warp; i++) update(dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -818,11 +841,15 @@ if (import.meta.env.DEV) {
       aim = aimFrom(-Math.cos((angleDeg * Math.PI) / 180) * power * maxPull(), Math.sin((angleDeg * Math.PI) / 180) * power * maxPull());
       launch();
     },
+    warp(n: number) {
+      warp = Math.max(1, Math.round(n));
+    },
     hold(on: boolean) {
       hold = on;
     },
     next: nextThrow,
     sky(key: string) {
+      pinned = true;
       skyKey = key;
       world = makeWorld(dailySeed(key));
       renderer.setWorld(world);

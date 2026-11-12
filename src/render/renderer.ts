@@ -632,10 +632,14 @@ export class Renderer {
         const fade = Math.sin(Math.min(1, phase) * Math.PI);
         if (Math.floor(fade * 2.999) !== band) continue;
         const air = airAt(world, s.x, s.y, t, this.air);
-        const len = s.len * (0.35 + Math.hypot(air.u, air.w) * 0.55);
-        const curl = Math.sin(s.life * 3 + s.x) * 0.12;
+        // A streak lies along the air's own motion: longer in faster air, never long.
+        const v = Math.hypot(air.u, air.w);
+        const len = Math.min(1.7, s.len * (0.3 + v * 0.42));
+        const ux = v > 0.05 ? air.u / v : 1;
+        const uy = v > 0.05 ? air.w / v : 0;
+        const curl = Math.sin(s.life * 3 + s.x) * 0.1;
         ctx.moveTo(s.x, s.y);
-        ctx.quadraticCurveTo(s.x - air.u * len * 0.5, s.y - air.w * len * 0.5 + curl, s.x - air.u * len - 0.2, s.y - air.w * len);
+        ctx.quadraticCurveTo(s.x - ux * len * 0.5, s.y - uy * len * 0.5 + curl, s.x - ux * len, s.y - uy * len);
       }
       ctx.globalAlpha = 0.1 + band * 0.11;
       ctx.stroke();
@@ -823,12 +827,12 @@ export class Renderer {
         ctx.lineWidth = 0.9 * px;
         ctx.globalAlpha = (1 - a / 0.9) * 0.6;
         ctx.beginPath();
-        for (let i = 0; i < 4; i++) {
-          const x = b.x - b.dir * (0.2 + i * 0.32 + a * (0.7 + i * 0.3));
-          const y = b.y + 0.1 + a * (0.3 + i * 0.16);
-          const r = 0.1 + a * 0.3 + i * 0.03;
+        for (let i = 0; i < 2; i++) {
+          const x = b.x - b.dir * (0.25 + i * 0.5 + a * (0.9 + i * 0.5));
+          const y = b.y + 0.12 + a * (0.35 + i * 0.25);
+          const r = 0.09 + a * 0.34 + i * 0.05;
           ctx.moveTo(x + r, y);
-          ctx.arc(x, y, r, 0, 4.4 + i);
+          ctx.arc(x, y, r, 0, 4.2 + i * 1.3);
         }
         ctx.stroke();
       } else if (b.kind === "ticks") {

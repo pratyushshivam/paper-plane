@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- The README banner and the social card. Open through the dev server
+     (/scripts/banner.html, or ?og for the social size) and screenshot #art.
+     The picture is the game's own renderer drawing a real flight on a real sky. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Paper Plane banner</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        src: url("/src/fonts/geist.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      html, body { margin: 0; background: #f2eee5; }
+      #art {
+        position: relative;
+        width: 1600px;
+        height: 720px;
+        overflow: hidden;
+        color: #15140f;
+        font-family: "Geist", system-ui, sans-serif;
+      }
+      body.og #art { width: 1200px; height: 630px; }
+      canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .text { position: absolute; left: 72px; top: 52px; }
+      body.og .text { left: 60px; top: 44px; }
+      h1 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 150px;
+        letter-spacing: -0.05em;
+        line-height: 0.9;
+      }
+      body.og h1 { font-size: 118px; }
+      .tag {
+        display: inline-block;
+        margin: 26px 0 0;
+        padding: 16px 3em 0 0;
+        border-top: 1.5px solid #15140f;
+        font-size: 38px;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+      }
+      body.og .tag { font-size: 32px; margin-top: 20px; padding-top: 12px; }
+      .sub {
+        margin: 6px 0 0;
+        font-size: 24px;
+        color: rgba(21, 20, 15, 0.66);
+      }
+      body.og .sub { font-size: 21px; }
+    </style>
+  </head>
+  <body>
+    <div id="art">
+      <canvas id="c"></canvas>
+      <div class="text">
+        <h1>Paper Plane</h1>
+        <p class="tag">Pull back, aim, let go.</p>
+        <p class="sub">A real glider model, a hand-drawn world, one sky a day.</p>
+      </div>
+    </div>
+    <script type="module">
+      import { Flight, ROOM, dailySeed, makeWorld } from "/src/engine/index.ts";
+      import { Renderer } from "/src/render/renderer.ts";
+
+      const og = new URLSearchParams(location.search).has("og");
+      if (og) document.body.classList.add("og");
+      await document.fonts.load('600 100px "Geist"');
+
+      // A real throw on a real daily sky, flown by lifting the nose in rising air.
+      const world = makeWorld(dailySeed("2026-11-17"));
+      const flight = new Flight(world, { angle: 0, power: 0.7 });
+      while (!flight.done) flight.step(flight.air.lift > 0.5 && flight.speed > 4.6);
+      const path = flight.result().path;
+
+      const canvas = document.getElementById("c");
+      const renderer = new Renderer(canvas);
+      renderer.setWorld(world);
+      renderer.resize();
+      const w = renderer.w;
+      const h = renderer.h;
+      const ppm = og ? 8.6 : 11;
+      const cx = ROOM.left - 5 + w / ppm / 2;
+      // The street sits near the bottom edge, leaving the sky for the words.
+      const cy = (h * 0.5 - (og ? 46 : 52)) / ppm;
+
+      // Stop the plane where it is about to leave the picture.
+      const n = Math.floor(path.length / 3);
+      const edge = cx + (w / ppm) * (og ? 0.3 : 0.34);
+      let at = 1;
+      while (at < n - 1 && path[at * 3] < edge) at++;
+      // Prefer a moment when it is flying level, not mid-swoop.
+      while (at > 10 && Math.abs(path[at * 3 + 2]) > 0.16) at--;
+      const plane = { x: path[at * 3], y: path[at * 3 + 1], th: path[at * 3 + 2], bank: 0.15, up: 1, squash: 1, visible: true };
+      const trail = [];
+      for (let i = Math.max(0, at - 70); i <= at; i++) trail.push(path[i * 3], path[i * 3 + 1]);
+
+      const frame = (t) => ({
+        view: { w, h, cx, cy, ppm, base: 30, t },
+        plane,
+        aim: null,
+        trail,
+        trace: { path, progress: at / (n - 1), ghost: null, restX: plane.x },
+        shake: { ref: null, amount: 0 },
+        bursts: [],
+        hand: null,
+        airMarks: 1,
+        dt: 1 / 60,
+      });
+      // Let the wind streaks and leaves settle in before the picture is taken.
+      for (let i = 0; i < 240; i++) renderer.draw(frame(40 + i / 60));
+      document.body.dataset.ready = "1";
+    </script>
+  </body>
+</html>

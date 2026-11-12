@@ -21,7 +21,7 @@ export const CD_ZERO = 0.028;
 /** Drag that comes with making lift. */
 export const K_INDUCED = 0.16;
 /** A stalled wing is a flat plate: these shape its lift and drag. */
-export const CL_PLATE = 1.05;
+export const CL_PLATE = 0.8;
 export const CD_PLATE = 1.7;
 
 /** Angle of attack the plane settles at on its own (5.5 degrees). */

@@ -1,0 +1,23 @@
+{
+  "name": "paper-plane",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pull back, aim, let go. A paper plane, a real glider model and one sky a day.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --port 5230",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5231",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "tune": "tsx scripts/tune.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

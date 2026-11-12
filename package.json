@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Pull back, aim, let go. A paper plane, a real glider model and one sky a day.",
+  "homepage": "https://pratyushshivam.github.io/paper-plane/",
   "license": "MIT",
   "scripts": {
     "dev": "vite --port 5230",

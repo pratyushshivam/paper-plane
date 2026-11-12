@@ -113,7 +113,7 @@ describe("the glider", () => {
   });
 
   it("settles into the steady glide the coefficients predict", () => {
-    const f = new Flight(bareWorld(), { angle: deg(-7.5), power: 0.28 });
+    const f = new Flight(bareWorld(), { angle: deg(-5), power: 0.45 });
     const seen: number[] = [];
     while (!f.done && f.t < 9) {
       f.step();

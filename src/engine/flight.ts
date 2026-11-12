@@ -19,7 +19,7 @@ export const DT = 1 / 240;
 /** One path sample is kept every this many steps (60 a second). */
 export const SAMPLE_EVERY = 4;
 
-export const MIN_SPEED = 4.5;
+export const MIN_SPEED = 2.5;
 export const MAX_SPEED = 11.5;
 export const MIN_ANGLE = -0.6;
 export const MAX_ANGLE = 1.45;

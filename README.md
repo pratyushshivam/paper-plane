@@ -13,6 +13,7 @@
   <a href="#the-flight-model">The flight model</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#run-it">Run it</a> ·
+  <a href="https://www.pratyushshivam.com/projects/paper-plane/">The full write-up</a> ·
   <a href="https://www.pratyushshivam.com/">pratyushshivam.com</a>
 </p>
 
